@@ -8,7 +8,7 @@ LmSail社区的前身是基于`UUASK问答系统`改造而成的，历时一个�
 
 ### LmSail社区现在的样子  
 
-![laravel-lmsail](https://github.com/MarichMarck/laravel-lmsail/blob/master/preview/old.png)
+![laravel-lmsail](https://github.com/MarichMarck/laravel-lmsail/blob/master/preview/new.png)
 
 ### LmSail社区介绍  
 LmSail社区基于`Laravel5.8`开发而成，界面及部分功能模仿`Summer`大神的`learnku`社区，后端使用`Laravel-admin`搭建而成，目前已完成的功能如下：  
