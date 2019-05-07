@@ -1,0 +1,38 @@
+.hide {
+    display: none;
+}
+.account-login-btn-disabled{
+    background-color: #CCC !important;
+    cursor: default !important;
+}
+.account-tip-cont {
+    height: 19px;
+}
+.c-error-icon {
+    background: url('../images/error-icon.png') no-repeat;
+    background-size: cover;
+    margin: 0 5px;
+    width: 18px;
+    height: 18px;
+    float: left;
+}
+.c-tip-text {
+    font-size: 14px;
+    color: #999;
+    float: left;
+}
+
+.c-hide {
+    display: none;
+}
+.account-input-cont {
+    padding: 20px 0 10px 0;
+}
+.account-input {
+    width: 100%;
+    height: 50px;
+    border-radius: 4px;
+    border: 1px solid #AAA;
+    font-size: 22px;
+    padding: 0px 20px;
+}

@@ -1,0 +1,15 @@
+{
+  "Login": "登录",
+  "Password": "密码",
+  "Remember Me": "记住我",
+  "username": "用户名",
+  "E-Mail Address": "邮箱地址",
+  "nickname": "昵称",
+  "Setting": "账号设置",
+  "Merchant Login": "商户登录",
+  "Personal Login": "用户登录",
+  "Admin Login": "后台登录",
+  "Admin Center": "后台管理",
+  "validation required": "验证码必填",
+  "validation captcha": "验证码填写有误"
+}

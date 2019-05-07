@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+    <style>
+        .active {
+            cursor: pointer;
+            width: 102px;
+            height: 38px;
+            line-height: 38px;
+            padding: 0;
+            border: 0;
+            background: none;
+            background-color: #38f;
+            font-size: 16px;
+            color: white;
+            box-shadow: none;
+            font-weight: normal;
+        }
+
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity .5s;
+        }
+        .fade-enter, .fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+    
+        <div class="" v-text="message"></div>
+    
+        <span v-bind:title="title">
+            鼠标悬停几秒钟查看此处动态绑定的提示信息！
+        </span>
+    
+        <div id="app-3">
+            <p v-if="seen">现在你看到我了</p>
+        </div>
+    
+        <ul id="example-1">
+            <li v-for="item in items">
+                {{ item.message }}
+            </li>
+        </ul>
+    
+        <h1>输入框表单</h1>
+        <input type="text" v-model="input.username">
+    
+        <input v-model="message" placeholder="edit me">
+        <p>Message is: {{ message }}</p>
+    
+        <h1>动画</h1>
+        <div id="demo">
+            <button v-on:click="show = !show">Toggle</button>
+            <transition name="fade">
+                <p v-if="show">hello</p>
+            </transition>
+        </div>
+    
+        <div class="">
+            <button v-on:click="test" v-bind:class="{ active: btn.isActive, 'text-danger': btn.hasError }">测试点击</button>
+        </div>
+        
+        <div class="">
+            <div class="" v-if="seen">
+                如果seen为True的话，你就能看到我了
+            </div>
+
+            <div class="" v-else>
+                如果seen为False的话，你就只能看到我了
+            </div>
+        </div>
+        
+        <h1>选项卡练习</h1>
+        <div class="tab">
+            <div class="" data-id="1" v-on:click="tabClick($event)">点到我了</div>
+            <div class="" data-id="2" v-on:click="tabClick($event)">点到我了</div>
+            <div class="" v-text="tabIndex"></div>
+        </div>
+
+        <h1>按钮组</h1>
+        <div class="">
+            <input type="radio" value='杭州' v-model="city"> 杭州
+            <input type="radio" value='苏州' v-model="city"> 苏州
+            <input type="radio" value='常州' v-model="city"> 常州
+
+            <div class="">选中的按钮：<span v-text="city"></span></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+    <script>
+        var app = new Vue({
+            el: '#app',
+            data: {
+                message: 'Hello Vue!',
+                title: '什么鬼东西啊',
+                city: '南京',
+                seen: true,
+
+                show: true,
+
+                tabIndex: 1,
+
+                btn: {
+                    isActive: false,
+                    hasError: false
+                },
+
+                items: [
+                    { message: 'Foo' },
+                    { message: 'Bar' }
+                ],
+
+                input: {
+                    username: ""
+                }
+            },
+            methods: {
+                test: function() {
+                    this.seen           = false;
+                    this.btn.isActive   = true;
+                    this.input.username = 'are you ok?';
+                },
+                tabClick: function(e) {
+                    this.tabIndex = e.currentTarget.getAttribute("data-id")
+                }
+            }
+        })
+    </script>
+</body>
+</html>
