@@ -48,7 +48,7 @@ LmSail社区基于`Laravel5.8`开发而成，界面及部分功能模仿`Summer`
 
 # 安装及使用  
 1. 拉取LmSail社区代码  
-> git clone https://github.com/lmsail/laravel-lmsail.git
+> git clone git@github.com:MarichMarck/laravel-lmsail.git
 2. 生成`.env`配置文件中`APP_KEY` 应用密钥
 > php artisan key:generate
 3. 设置`.env`配置文件中`APP_URL` 网站地址
