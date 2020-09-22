@@ -1,0 +1,242 @@
+# bash support for Terminal.
+
+
+# Working Directory
+#
+# Tell the terminal about the current working directory at each prompt.
+
+if [ -z "$INSIDE_EMACS" ]; then
+    update_terminal_cwd() {
+	# Identify the directory using a "file:" scheme URL, including
+	# the host name to disambiguate local vs. remote paths.
+
+	# Percent-encode the pathname.
+	local url_path=''
+	{
+	    # Use LC_CTYPE=C to process text byte-by-byte. Ensure that
+	    # LC_ALL isn't set, so it doesn't interfere.
+	    local i ch hexch LC_CTYPE=C LC_ALL=
+	    for ((i = 0; i < ${#PWD}; ++i)); do
+		ch="${PWD:i:1}"
+		if [[ "$ch" =~ [/._~A-Za-z0-9-] ]]; then
+		    url_path+="$ch"
+		else
+		    printf -v hexch "%02X" "'$ch"
+		    # printf treats values greater than 127 as
+		    # negative and pads with "FF", so truncate.
+		    url_path+="%${hexch: -2:2}"
+		fi
+	    done
+	}
+
+	printf '\e]7;%s\a' "file://$HOSTNAME$url_path"
+    }
+    PROMPT_COMMAND="update_terminal_cwd${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+fi
+
+
+# Resume Support: Save/Restore Shell State
+#
+# Terminal assigns each terminal session a unique identifier and
+# communicates it via the TERM_SESSION_ID environment variable so that
+# programs running in a terminal can save/restore application-specific
+# state when quitting and restarting Terminal with Resume enabled.
+#
+# The following code defines a shell save/restore mechanism. Users can
+# add custom state by defining a shell_session_save_user_state function
+# that writes restoration commands to the session file at exit. e.g.,
+# to save a variable:
+#
+#   shell_session_save_user_state() { echo MY_VAR="'$MY_VAR'" >> "$SHELL_SESSION_FILE"; }
+#
+# During shell startup the session file is executed. Old files are
+# periodically deleted.
+#
+# The default behavior arranges to save and restore the bash command
+# history independently for each restored terminal session. It also
+# merges commands into the global history for new sessions. Because
+# of this it is recommended that you set HISTSIZE and HISTFILESIZE to
+# larger values.
+#
+# You may disable this behavior and share a single history by setting
+# SHELL_SESSION_HISTORY to 0. There are some common user customizations
+# that arrange to share new commands among running shells by
+# manipulating the history at each prompt, and they typically include
+# 'shopt -s histappend'; therefore, if the histappend shell option is
+# enabled, per-session history is disabled by default. You may
+# explicitly enable it by setting SHELL_SESSION_HISTORY to 1.
+#
+# The implementation of per-session command histories in combination
+# with a shared global command history is incompatible with the
+# HISTTIMEFORMAT variable--the timestamps are applied inconsistently
+# to different parts of the history; therefore, if HISTTIMEFORMAT is
+# defined, per-session history is disabled by default.
+#
+# Note that this uses PROMPT_COMMAND to enable per-session history
+# the first time for each new session. If you customize PROMPT_COMMAND
+# be sure to include the previous value. e.g.,
+#
+#   PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }your_code_here"
+#
+# Otherwise, the per-session history won't take effect until the first
+# restore.
+#
+# The save/restore mechanism is disabled if the following file exists:
+#
+#   ~/.bash_sessions_disable
+
+if [ ${SHELL_SESSION_DID_INIT:-0} -eq 0 ] && [ -n "$TERM_SESSION_ID" ] && [ ! -e "$HOME/.bash_sessions_disable" ]; then
+
+    # Do not perform this setup more than once (which shouldn't occur
+    # unless the user's ~/.bash_profile executes /etc/profile, which
+    # is normally redundant).
+    SHELL_SESSION_DID_INIT=1
+
+    # Set up the session directory/file.
+    SHELL_SESSION_DIR="$HOME/.bash_sessions"
+    SHELL_SESSION_FILE="$SHELL_SESSION_DIR/$TERM_SESSION_ID.session"
+    mkdir -m 700 -p "$SHELL_SESSION_DIR"
+
+    #
+    # Restore previous session state.
+    #
+
+    if [ -r "$SHELL_SESSION_FILE" ]; then
+	. "$SHELL_SESSION_FILE"
+	rm "$SHELL_SESSION_FILE"
+    fi
+
+    #
+    # Note: Use absolute paths to invoke commands in the exit code and
+    # anything else that runs after user startup files, because the
+    # search path may have been modified.
+    #
+
+    #
+    # Arrange for per-session shell command history.
+    #
+
+    shell_session_history_allowed() {
+	# Return whether per-session history should be enabled.
+	if [ -n "$HISTFILE" ]; then
+	    # If this defaults to off, leave it unset so that we can
+	    # check again later. If it defaults to on, make it stick.
+	    local allowed=0
+	    if shopt -q histappend || [ -n "$HISTTIMEFORMAT" ]; then
+		allowed=${SHELL_SESSION_HISTORY:-0}
+	    else
+		allowed=${SHELL_SESSION_HISTORY:=1}
+	    fi
+	    if [ $allowed -eq 1 ]; then
+		return 0
+	    fi
+	fi
+	return 1
+    }
+
+    if [ ${SHELL_SESSION_HISTORY:-1} -eq 1 ]; then
+	SHELL_SESSION_HISTFILE="$SHELL_SESSION_DIR/$TERM_SESSION_ID.history"
+	SHELL_SESSION_HISTFILE_NEW="$SHELL_SESSION_DIR/$TERM_SESSION_ID.historynew"
+	SHELL_SESSION_HISTFILE_SHARED="$HISTFILE"
+
+	shell_session_history_enable() {
+	    (umask 077; /usr/bin/touch "$SHELL_SESSION_HISTFILE_NEW")
+	    HISTFILE="$SHELL_SESSION_HISTFILE_NEW"
+	    SHELL_SESSION_HISTORY=1
+	}
+
+	# If the session history already exists and isn't empty, start
+	# using it now; otherwise, we'll use the shared history until
+	# we've determined whether users have enabled/disabled this.
+	if [ -s "$SHELL_SESSION_HISTFILE" ]; then
+	    history -r "$SHELL_SESSION_HISTFILE"
+	    shell_session_history_enable
+	else
+	    # At the first prompt, check whether per-session history should
+	    # be enabled. Delaying until after user scripts have run allows
+	    # users to opt in or out. If this doesn't get executed (because
+	    # the user has replaced PROMPT_COMMAND instead of concatenating
+	    # it), we'll check at shell exit; that works, but doesn't start
+	    # the per-session history until the first restore.
+
+	    shell_session_history_check() {
+		if [ ${SHELL_SESSION_DID_HISTORY_CHECK:-0} -eq 0 ]; then
+		    SHELL_SESSION_DID_HISTORY_CHECK=1
+		    if shell_session_history_allowed; then
+			shell_session_history_enable
+		    fi
+		    # Remove this check if we can; otherwise, we rely on the
+		    # variable above to prevent checking more than once.
+		    if [ "$PROMPT_COMMAND" = "shell_session_history_check" ]; then
+			unset PROMPT_COMMAND
+		    elif [[ $PROMPT_COMMAND =~ (.*)(; *shell_session_history_check *| *shell_session_history_check *; *)(.*) ]]; then
+			PROMPT_COMMAND="${BASH_REMATCH[1]}${BASH_REMATCH[3]}"
+		    fi
+		fi
+	    }
+	    PROMPT_COMMAND="shell_session_history_check${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+	fi
+
+	shell_session_save_history() {
+	    # Save new history to an intermediate file so we can copy it.
+	    shell_session_history_enable
+	    history -a
+	    # If the session history doesn't exist yet, copy the shared history.
+	    if [ -f "$SHELL_SESSION_HISTFILE_SHARED" ] && [ ! -s "$SHELL_SESSION_HISTFILE" ]; then
+		echo -ne '\n...copying shared history...'
+		(umask 077; /bin/cp "$SHELL_SESSION_HISTFILE_SHARED" "$SHELL_SESSION_HISTFILE")
+	    fi
+	    # Save new history to the per-session and shared files.
+	    echo -ne '\n...saving history...'
+	    (umask 077; /bin/cat "$SHELL_SESSION_HISTFILE_NEW" >> "$SHELL_SESSION_HISTFILE_SHARED")
+	    (umask 077; /bin/cat "$SHELL_SESSION_HISTFILE_NEW" >> "$SHELL_SESSION_HISTFILE")
+	    : >| "$SHELL_SESSION_HISTFILE_NEW"
+	    # If there is a history file size limit, apply it to the files.
+	    if [ -n "$HISTFILESIZE" ]; then
+		echo -n 'truncating history files...'
+		HISTFILE="$SHELL_SESSION_HISTFILE_SHARED"
+		HISTFILESIZE="$HISTFILESIZE"
+		HISTFILE="$SHELL_SESSION_HISTFILE"
+		HISTFILESIZE="$size"
+		HISTFILE="$SHELL_SESSION_HISTFILE_NEW"
+	    fi
+	    echo -ne '\n...'
+	}
+    fi
+
+    #
+    # Arrange to save session state when exiting the shell.
+    #
+
+    shell_session_save() {
+	# Save the current state.
+	if [ -n "$SHELL_SESSION_FILE" ]; then
+	    echo -n 'Saving session...'
+	    (umask 077; echo 'echo Restored session: "$(/bin/date -r '$(/bin/date +%s)')"' >| "$SHELL_SESSION_FILE")
+	    declare -F shell_session_save_user_state >/dev/null && shell_session_save_user_state
+	    shell_session_history_allowed && shell_session_save_history
+	    echo 'completed.'
+	fi
+    }
+
+    # Delete old session files. (Not more than once a day.)
+    SHELL_SESSION_TIMESTAMP_FILE="$SHELL_SESSION_DIR/_expiration_check_timestamp"
+    shell_session_delete_expired() {
+	if ([ ! -e "$SHELL_SESSION_TIMESTAMP_FILE" ] || [ -z "$(/usr/bin/find "$SHELL_SESSION_TIMESTAMP_FILE" -mtime -1d)" ]); then
+	    local expiration_lock_file="$SHELL_SESSION_DIR/_expiration_lockfile"
+	    if /usr/bin/shlock -f "$expiration_lock_file" -p $$; then
+		echo -n 'Deleting expired sessions...'
+		local delete_count=$(/usr/bin/find "$SHELL_SESSION_DIR" -type f -mtime +2w -print -delete | /usr/bin/wc -l)
+		[ "$delete_count" -gt 0 ] && echo $delete_count' completed.' || echo 'none found.'
+		(umask 077; /usr/bin/touch "$SHELL_SESSION_TIMESTAMP_FILE")
+		/bin/rm "$expiration_lock_file"
+	    fi
+	fi
+    }
+
+    # Update saved session state when exiting.
+    shell_session_update() {
+	shell_session_save && shell_session_delete_expired
+    }
+    trap shell_session_update EXIT
+fi
