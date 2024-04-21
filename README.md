@@ -32,10 +32,6 @@ LmSail社区基于`Laravel5.8`开发而成，界面及部分功能模仿`Summer`
 * 搜索采用`elasticsearch`全文搜索引擎重构
 * 其他（loading...）  
 
-### 演示地址  
-
-演示地址：[LmSail社区](http://www.lmsail.com)
-
 ### 安装及使用  
 1. 拉取LmSail社区代码  
 ```
